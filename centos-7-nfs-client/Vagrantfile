@@ -17,11 +17,11 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Centos 7
   config.vm.box = "centos/7"
 
-  config.vm.hostname = "CENTOS7SP19"
+  config.vm.hostname = "SP19CLIENT"
   #config.vm.hostname = "ubuntusp19"
 
   # Configure vm name (later used for ansible group)
-  config.vm.define "CENTOS7SP19"
+  config.vm.define "SP19CLIENT"
   #config.vm.define = "ubuntusp19"
 
   config.vm.provider "virtualbox" do |vb|
@@ -30,9 +30,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   end
 
   # manual ip
-  #config.vm.network "public_network", :bridge => "enxa0cec8039e98", ip: "10.100.194.21", :netmask => "255.255.248.0", auto_config: false
+  #config.vm.network "public_network", :bridge => "enxa0cec8039e98", ip: "10.100.194.22", :netmask => "255.255.248.0", auto_config: false
   # CentOS 7 manual ip address (interface enxa0cec8039e98)
-  config.vm.network "public_network", ip: "10.100.194.21", bridge: "enxa0cec8039e98", bootproto: "static", gateway: "10.100.199.254", dns: "131.230.2.50", netmask: "255.255.248.0"
+  config.vm.network "public_network", ip: "10.100.194.22", bridge: "enxa0cec8039e98", bootproto: "static", gateway: "10.100.199.254", dns: "131.230.2.50", netmask: "255.255.248.0"
 
   #config.vm.provision "shell",
     #inline: "sudo apt-get update && sudo apt install -y python"
@@ -52,7 +52,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     ansible.playbook = "playbook.yml"
 
     ansible.groups = {
-      "test" => ["CENTOS7SP19"]
+      "test" => ["SP19CLIENT"]
     }
 
 #    ansible.extra_vars = {

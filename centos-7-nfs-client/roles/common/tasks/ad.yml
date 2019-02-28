@@ -2,7 +2,7 @@
 
 - name: Set hostname with bash
   shell: |
-    sudo hostnamectl set-hostname CENTOS7SP19.AD.SIU.EDU
+    sudo hostnamectl set-hostname SP19CLIENT.AD.SIU.EDU
   become: True
   args:
     executable: /bin/bash
