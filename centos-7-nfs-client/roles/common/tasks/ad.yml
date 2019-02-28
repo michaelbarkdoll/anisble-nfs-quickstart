@@ -1,0 +1,191 @@
+---
+
+- name: Set hostname with bash
+  shell: |
+    sudo hostnamectl set-hostname CENTOS7SP19.AD.SIU.EDU
+  become: True
+  args:
+    executable: /bin/bash
+  #delegate_to: localhost
+
+- name: Configure /etc/hostname
+  template:
+    src: etc/hostname
+    dest: /etc/hostname
+    owner: root
+    group: root
+    mode: 0644
+    backup: no
+
+
+
+- name: Configure /etc/krb5.conf
+  template:
+    src: etc/krb5.conf
+    dest: /etc/krb5.conf
+    owner: root
+    group: root
+    mode: 0644
+    backup: no
+
+
+#- name: Configure /etc/sssd/sssd.conf
+#  template:
+#    src: etc/sssd/sssd.conf
+#    dest: /etc/sssd/sssd.conf
+#    owner: root
+#    group: root
+#    mode: 0644
+#    backup: no
+
+######################
+# NEW DOC:
+######################
+# vi /etc/sysconfig/network
+# Add line:
+# DOMAIN=AD.SIU.EDU
+# SEARCH=AD.SIU.EDU
+
+# Ubuntu edit /etc/resolvconf/resolv.conf.d/base put info in resolv.conf
+# nameserver 131.230.2.50
+# Regenerate with sudo resolvconf -u
+
+# vi /etc/sysconfig/network-scripts/ifcfg-eth1
+# DNS1=131.230.2.50
+
+###############
+# Fix DNS not updating:
+# https://access.redhat.com/solutions/2788821
+# echo "127.0.0.1 `hostname` `hostname -a`" >> /etc/hosts
+# echo "127.0.0.1 CENTOS7SP19.AD.SIU.EDU CENTOS7SP19" >> /etc/hosts
+
+# Determine DNS Server on AD side:
+# nltest /dnsgetdc:ad.siu.edu
+
+# Enable sssd debugging:
+# https://access.redhat.com/solutions/217963
+# kinit -kt /etc/krb5.keytab CENTOS7SP19$
+
+# Network engineering's bind server isn't part of kerberos...
+#cat testvmrh3.txt 
+#```
+#server 131.230.252.1
+#realm AD.SIU.EDU
+#update add 21.194.100.10.in-addr.arpa. 60 in PTR CENTOS7SP19.AD.SIU.EDU.
+#send
+#```
+#nsupdate -dD -L 255 < ./testvmrh3.txt
+# nsupdate -g -dD -L 255 < ./testvmrh3.txt
+#service sssd stop ; rm -f /var/lib/sss/db/* /var/log/sssd/* ; service sssd start
+###############
+
+# realm leave -vvvv --user=0csadmin
+# realm join -vvvv --computer-ou="ou=Computers,ou=CS,ou=COS,ou=Academic Affairs,dc=ad,dc=siu,dc=edu" --user-principal=nfs/centos7sp19.ad.siu.edu@AD.SIU.EDU --os-name=CentOS --user=0csadmin AD.SIU.EDU
+
+# net ads dns register centos7sp19.ad.siu.edu 10.100.194.21 -P
+
+# inside AD:
+# setspn -A nfs/centos7sp19.ad.siu.edu CENTOS7SP19
+# setspn -L server
+
+
+
+
+###########
+#
+# OLD DOC
+#
+#############
+
+# inside AD:
+# setspn -A nfs/server.example.com server
+# setspn -L server
+
+# realm discover ad.siu.edu
+# realm join -vvvv --user=0csadmin --os-name=SIU_CS_LINUX --os-version=7
+# realm list
+
+# samba_upgradedns --dns-backend=BIND9_DLZ
+
+# realm leave -vvvv --user=0csadmin
+# realm join -vvvv --computer-ou="ou=Computers,ou=CS,ou=COS,ou=Academic Affairs,dc=ad,dc=siu,dc=edu" --user-principal=host/NFSSRV1@AD.SIU.EDU --user=0csadmin AD.SIU.EDU
+# realm list
+# realm leave -vvvv --user=0csadmin
+# realm join -vvvv --computer-ou="ou=Computers,ou=CS,ou=COS,ou=Academic Affairs,dc=ad,dc=siu,dc=edu" --user-principal=nfs/nfssrv1.ad.siu.edu@AD.SIU.EDU --os-name=CentOS --user=0csadmin AD.SIU.EDU
+# id siu851164679@AD.SIU.EDU
+
+# klist
+# kinit -l `hostname -s`$
+# hostname -s
+# kinit -l NFSSRV1$
+
+# vi /etc/sysconfig/nfs
+# yum install gssproxy
+# systemctl start gssproxy
+# yum install nfs-utils
+# mkdir -p /export
+# chmod -R 755 /export/
+# chown nfsnobody:nfsnobody /export
+# systemctl enable rpcbind
+# systemctl enable nfs-server
+# systemctl enable nfs-lock
+# systemctl enable nfs-idmap
+# systemctl start rpcbind
+# systemctl start nfs-server
+# systemctl start nfs-lock
+# systemctl start nfs-idmap
+
+# cat /etc/exports
+# systemctl restart nfs-server
+
+# firewall-cmd --permanent --zone=public --add-service=nfs
+# firewall-cmd --permanent --zone=public --add-service=mountd
+# firewall-cmd --permanent --zone=public --add-service=rpc-bind
+
+# systemctl status gssproxy
+# systemctl status rpc-gssd
+
+# mkdir -p /export/mbarkdoll
+# chown siu851164679.110 /export/mbarkdoll
+# mkdir -p /export/naresh
+# chown siu854746381.102 /export/nsama
+
+# journalctl -n100
+# rpcdebug -m nfsd all
+# vi /etc/nfs.conf
+# vi /etc/idmapd.conf
+
+# nfsidmap -l
+# nfsidmap -c
+# exportfs -v
+# journalctl -xe
+
+# kinit -l `hostname -s`$
+# kinit -k `hostname -s`$
+
+# vi /etc/auto.master
+# vi /etc/auto.home
+
+# systemctl restart nfs-idmap; systemctl restart nfs-lock; systemctl restart nfs-server; systemctl restart nfs-idmap; systemctl restart nfs-secure
+# rpcdebug -m nfsd -s all
+
+
+# echo 1 > /proc/sys/sunrpc/nfs_debug
+# tail -100 /var/log/syslog
+# tail -100 /var/log/messages
+# rpcinfo -p
+# exportfs -ra
+# showmount -e localhost
+
+# vi /etc/sysconfig/nfs
+# vi /etc/exports
+# vi /var/log/messages
+
+# journalctl | grep rpc.idmapd | less
+
+
+
+
+
+
+

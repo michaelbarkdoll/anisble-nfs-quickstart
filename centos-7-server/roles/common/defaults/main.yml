@@ -1,0 +1,22 @@
+---
+
+realmd_prereq_packages:
+  - realmd
+  - sssd
+  - adcli
+  - oddjob
+  - oddjob-mkhomedir
+  - samba-common
+  - samba-common-tools
+  - krb5-workstation
+#  - nfs-utils
+
+#  - sssd-tools
+#  - sssd
+#  - libnss-sss
+#  - adcli
+#  - packagekit
+#  - ntp
+#  - samba-common-bin
+#  - krb5-user
+#  - python-pexpect
