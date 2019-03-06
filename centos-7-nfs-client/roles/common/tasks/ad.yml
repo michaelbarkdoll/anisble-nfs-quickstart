@@ -38,11 +38,21 @@
 #    mode: 0644
 #    backup: no
 
+
+- name: Configure /etc/sysconfig/network
+  template:
+    src: etc/sysconfig/network
+    dest: /etc/sysconfig/network
+    owner: root
+    group: root
+    mode: 0644
+    backup: no
+
 ######################
 # NEW DOC:
 ######################
 # vi /etc/sysconfig/network
-# Add line:
+# Add lines:
 # DOMAIN=AD.SIU.EDU
 # SEARCH=AD.SIU.EDU
 
@@ -66,7 +76,16 @@
 # https://access.redhat.com/solutions/217963
 # kinit -kt /etc/krb5.keytab CENTOS7SP19$
 
-# Network engineering's bind server isn't part of kerberos...
+
+# Note sssd requires line: 
+  #ad_hostname = centossp19.ad.siu.edu
+# for DNS A record to succeed.
+
+
+
+# Side note: Network engineering's bind server (ns1.siu.edu) isn't part of kerberos...
+
+# PTR record update (doesnt work with ad.siu.edu's DNS server 131.230.2.50)
 #cat testvmrh3.txt 
 #```
 #server 131.230.252.1
@@ -74,22 +93,208 @@
 #update add 21.194.100.10.in-addr.arpa. 60 in PTR CENTOS7SP19.AD.SIU.EDU.
 #send
 #```
-#nsupdate -dD -L 255 < ./testvmrh3.txt
+# cat update.txt 
+
+# A record update:
+#cat update.txt
+#```
+#update delete sp19client.ad.siu.edu. in A
+#update add sp19client.ad.siu.edu. 60 in A 10.100.194.22
+#send
+#update delete sp19client.ad.siu.edu. in AAAA
+#send
+#```
+
+# Non-kerberos authentication update
+# nsupdate -dD -L 255 < ./testvmrh3.txt
+# Include kerberos GSS authentication with the update (required)
 # nsupdate -g -dD -L 255 < ./testvmrh3.txt
+
 #service sssd stop ; rm -f /var/lib/sss/db/* /var/log/sssd/* ; service sssd start
 ###############
 
+# Join the REALM
 # realm leave -vvvv --user=0csadmin
 # realm join -vvvv --computer-ou="ou=Computers,ou=CS,ou=COS,ou=Academic Affairs,dc=ad,dc=siu,dc=edu" --user-principal=nfs/centos7sp19.ad.siu.edu@AD.SIU.EDU --os-name=CentOS --user=0csadmin AD.SIU.EDU
 
+# Register with the DNS
 # net ads dns register centos7sp19.ad.siu.edu 10.100.194.21 -P
+
+# Following is required:
+#```shell
+#$ cat /etc/samba/smb.conf
+#```
+#
+#```bash
+#[global]
+#    workgroup = AD
+#    client signing = yes
+#    client use spnego = yes
+#    kerberos method = secrets and keytab
+#    log file = /var/log/samba/%m.log
+#    realm = AD.SIU.EDU
+#    security = ads
+#```
+# net ads dns register sp19.ad.siu.edu 10.100.194.32 -P -U 0csadmin
 
 # inside AD:
 # setspn -A nfs/centos7sp19.ad.siu.edu CENTOS7SP19
 # setspn -L server
 
+# Allow ssh logins with passwords
+# vi /etc/ssh/sshd_config
+# Comment out:
+#  PasswordAuthentication no
+# systemctl restart sshd
 
 
+
+
+# TODO: Setup autofs
+
+# setspn -a
+
+# Manually prepare nfs keytab for client machine (required)
+
+## [root@sp19client ~]# ktutil
+## ktutil:  l
+## slot KVNO Principal
+## ---- ---- ---------------------------------------------------------------------
+## ktutil:  rkt /etc/krb5.
+## krb5.conf    krb5.conf.d/ krb5.keytab  
+## ktutil:  rkt /etc/krb5.keytab 
+## ktutil:  l
+## slot KVNO Principal
+## ---- ---- ---------------------------------------------------------------------
+##    1    3    host/sp19client.ad.siu.edu@AD.SIU.EDU
+##    2    3               host/SP19CLIENT@AD.SIU.EDU
+##    3    3    host/sp19client.ad.siu.edu@AD.SIU.EDU
+##    4    3               host/SP19CLIENT@AD.SIU.EDU
+##    5    3    host/sp19client.ad.siu.edu@AD.SIU.EDU
+##    6    3               host/SP19CLIENT@AD.SIU.EDU
+##    7    3    host/sp19client.ad.siu.edu@AD.SIU.EDU
+##    8    3               host/SP19CLIENT@AD.SIU.EDU
+##    9    3    host/sp19client.ad.siu.edu@AD.SIU.EDU
+##   10    3               host/SP19CLIENT@AD.SIU.EDU
+##   11    3                   SP19CLIENT$@AD.SIU.EDU
+##   12    3                   SP19CLIENT$@AD.SIU.EDU
+##   13    3                   SP19CLIENT$@AD.SIU.EDU
+##   14    3                   SP19CLIENT$@AD.SIU.EDU
+##   15    3                   SP19CLIENT$@AD.SIU.EDU
+##   16    3     nfs/sp19client.ad.siu.edu@AD.SIU.EDU
+##   17    3     nfs/sp19client.ad.siu.edu@AD.SIU.EDU
+##   18    3     nfs/sp19client.ad.siu.edu@AD.SIU.EDU
+##   19    3     nfs/sp19client.ad.siu.edu@AD.SIU.EDU
+##   20    3     nfs/sp19client.ad.siu.edu@AD.SIU.EDU
+## ktutil:  delent 15
+## ktutil:  delent 14
+## ktutil:  delent 13
+## ktutil:  delent 12
+## ktutil:  delent 11
+## ktutil:  delent 10
+## ktutil:  delent 9
+## ktutil:  delent 8
+## ktutil:  delent 7
+## ktutil:  delent 6
+## ktutil:  delent 5
+## ktutil:  delent 4
+## ktutil:  delent 3
+## ktutil:  delent 2
+## ktutil:  delent 1
+## ktutil:  l
+## slot KVNO Principal
+## ---- ---- ---------------------------------------------------------------------
+##    1    3     nfs/sp19client.ad.siu.edu@AD.SIU.EDU
+##    2    3     nfs/sp19client.ad.siu.edu@AD.SIU.EDU
+##    3    3     nfs/sp19client.ad.siu.edu@AD.SIU.EDU
+##    4    3     nfs/sp19client.ad.siu.edu@AD.SIU.EDU
+##    5    3     nfs/sp19client.ad.siu.edu@AD.SIU.EDU
+## ktutil:  wkt /etc/nfs.keytab
+## ktutil:  q
+
+# vi /etc/sysconfig/nfs
+# RPCGSSDARGS="-k /etc/nfs.keytab"
+
+# systemctl restart nfs-config
+
+# IMPORTANT YOU MUST DO THE FOLLOWING!!!
+# systemctl enable nfs-client.target && systemctl start nfs-client.target
+
+# Forwardable kerberos ticket
+# kinit -f siu851164679@AD.SIU.EDU
+# ssh -K vagrant@SP19CLIENT.AD.SIU.EDU
+# http://kb.mit.edu/confluence/pages/viewpage.action?pageId=4981397
+
+# The following works without having to reacquire the forwardable kerberos ticket
+# ssh -K SIU851154679@AD.SIU.EDU
+
+# scp a file to a server:
+# scp -o 'GSSAPIAuthentication yes' t1 SIU851164679@sp19.ad.siu.edu:~/t2
+
+# Putty (windows)
+# https://serverfault.com/questions/646854/putty-kerberos-gssapi-authentication
+
+
+#### vi /etc/default/nfs-common 
+#### STATDOPTS=
+####
+##### Do you want to start the gssd daemon? It is required for Kerberos mounts.
+####NEED_GSSD="yes"
+####
+####NEED_IDMAPD=yes
+####
+####RPCGSSDARGS="-k /etc/nfs2.keytab"
+
+
+#systemctl restart autofs
+
+#vi /etc/auto.master
+#+auto.master
+#/home   /etc/auto.home
+
+
+#vi /etc/auto.home
+#mbarkdoll      -fstype=nfs4,sec=krb5    nfssrv1.ad.siu.edu:/export/mbarkdoll
+#nsama           -fstype=nfs4,sec=krb5   nfssrv1.ad.siu.edu:/export/nsama
+
+#
+# 43  kinit siu851164679@AD.SIU.EDU
+#    44  klist
+#    45  mount 10.0.2.21:/export /export -o sec=krb5
+#    46  mount 10.0.2.21:/export /export -o user=SIU851164679,sec=krb5
+#    47  mount 10.0.2.21:/export /export -o user=SIU851164679,cruid=SIU851164679,sec=krb5
+#    48  su siu851164679
+#mount 10.0.2.21:/export /export -o user=siu851164679@ad.siu..edu,cruid=siu851164679@ad.siu.edu,sec=krb5
+#   50  mount -o user=siu851164679@ad.siu..edu,cruid=siu851164679@ad.siu.edu,sec=krb5 10.0.2.21:/export /export
+#   51  mount -o user=siu851164679@ad.siu.edu,cruid=siu851164679@ad.siu.edu,sec=krb5 10.0.2.21:/export /export
+#   52  mount 10.0.2.21:/export /export -o user=siu851164679@ad.siu.edu,cruid=siu851164679@ad.siu.edu,sec=krb5
+#   53  mount -o user=siu851164679@ad.siu.edu,sec=krb5 10.0.2.21:/export /export
+#mount -v -t nfs4 -o sec=krb5 10.0.2.21:/export /export
+# kinit -k UBUNTUSP19$
+# kinit -k UBUNTUSP19$
+# 10.0.2.15
+# mount -v -t nfs4 -o sec=krb5 10.0.2.15:/export /mnt
+
+mount -v -t nfs4 -o sec=krb5 SP19SRV.AD.SIU.EDU:/export /mnt
+
+
+603  mount -vvv -t nfs4 -o sec=krb5 nfssrv1.ad.siu.edu:/export /export
+  608  umount /export
+  612  mount
+  613  unmount /home/mbarkdoll
+  614  umount /home/mbarkdoll
+  643  mount
+  644  umount /home/mbarkdoll
+  656  umount /home/mbarkdoll
+  663  mount
+  666  umount /home/mbarkdoll
+  673  mount 10.0.2.15:/export /export -o user=SIU851164679,sec=krb5
+  680  kinit siu851164679@AD.SIU.EDU -k -t siu851164679.keytab; mount 10.0.2.21:/export /export -o user=SIU851164679,sec=krb5
+  690  mount 10.0.2.15:/export /export -o user=SIU851164679,sec=krb5
+  694  mount
+  706  history |grep mount
+  713  history |grep mount
+  714  mount -v -t nfs4 -o sec=krb5 nfssrv1.ad.siu.edu:/export /export
 
 ###########
 #
